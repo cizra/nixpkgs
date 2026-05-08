@@ -20,7 +20,6 @@ let
     mkOption
     mkPackageOption
     optional
-    optionalAttrs
     types
     ;
 
@@ -367,7 +366,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    services.postgresql = optionalAttrs cfg.createDatabase {
+    services.postgresql = mkIf cfg.createDatabase {
       enable = true;
       ensureDatabases = [ "matrix-authentication-service" ];
       ensureUsers = [
