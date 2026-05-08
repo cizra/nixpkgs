@@ -74,9 +74,8 @@ in
       {
         services.matrix-synapse = {
           enable = true;
-          plugins = [
-            pkgs.python3Packages.authlib
-          ];
+          # authlib is auto-injected by the matrix-authentication-service module
+          # when experimental_features.msc3861.enabled is true.
           settings = {
             inherit listeners;
             database = {

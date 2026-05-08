@@ -383,6 +383,14 @@ in
     };
     users.groups.matrix-authentication-service = { };
 
+    # Synapse needs the authlib Python package whenever it delegates auth to MAS
+    # via MSC3861. Inject it automatically when the user has wired the two
+    # services together, so the homeserver actually starts up.
+    services.matrix-synapse.plugins = mkIf (
+      config.services.matrix-synapse.enable
+      && (config.services.matrix-synapse.settings.experimental_features.msc3861.enabled or false)
+    ) [ config.services.matrix-synapse.package.unwrapped.python.pkgs.authlib ];
+
     services.matrix-authentication-service.settings.http.listeners = mkDefault [
       {
         name = "web";
