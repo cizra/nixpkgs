@@ -117,7 +117,7 @@ in
           enable = true;
           createDatabase = true;
           extraConfigFiles = [
-            (pkgs.writeText "mas-extra-config.yml" ''
+            "${pkgs.writeText "mas-extra-config.yml" ''
               secrets:
                 encryption: 85c39ce195bd01d17b583687edf20ae09eede66f4ce043f15afc2afa719249c9
                 keys:
@@ -173,7 +173,7 @@ in
                     UMyVVDVWwkAdxfASbDGu4yiSwy9uEw==
                     -----END EC PRIVATE KEY-----
 
-            '')
+            ''}"
           ];
           settings = {
             clients = [

@@ -334,15 +334,22 @@ in
     };
 
     extraConfigFiles = mkOption {
-      type = types.listOf types.path;
+      type = types.listOf types.str;
       default = [ ];
+      example = lib.literalExpression ''
+        [ "''${CREDENTIALS_DIRECTORY}/mas-secrets.yaml" ]
+      '';
       description = ''
         Extra config files to include.
 
         The configuration files will be included based on the command line
         argument --config. This allows to configure secrets without
         having to go through the Nix store, e.g. based on deployment keys if
-        NixOps is in use.
+        NixOps is in use, or via systemd's `LoadCredential=`.
+
+        The type is `str` rather than `path` so values may reference runtime
+        environment variables expanded by systemd (e.g. `''${CREDENTIALS_DIRECTORY}`)
+        without copying secrets into the world-readable Nix store.
       '';
     };
 
