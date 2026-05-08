@@ -273,22 +273,26 @@ in
           };
 
           matrix.homeserver = mkOption {
-            type = types.str;
-            default = "";
+            type = types.nullOr types.str;
+            default = null;
             description = ''
               Corresponds to the server_name in the Synapse configuration file.
             '';
           };
           matrix.secret = mkOption {
-            type = types.str;
-            default = "";
+            type = types.nullOr types.str;
+            default = null;
             description = ''
               A shared secret the service will use to call the homeserver admin API.
+
+              Leave this `null` and use {option}`services.matrix-authentication-service.extraConfigFiles`
+              (or `matrix.secret_path` in an extra config file) to provide the value out of band, so
+              the secret does not end up in the world-readable Nix store.
             '';
           };
           matrix.endpoint = mkOption {
-            type = types.str;
-            default = "";
+            type = types.nullOr types.str;
+            default = null;
             description = ''
               The URL to which the homeserver is accessible from the service.
             '';
