@@ -8,6 +8,7 @@
   # nativeBuildInputs
   cmake,
   ninja,
+  autoAddDriverRunpath,
 
   # build-system
   pathspec,
@@ -37,22 +38,21 @@
 let
   stdenvTarget = if cudaSupport then gcc13Stdenv else stdenv;
 in
-buildPythonPackage rec {
+buildPythonPackage.override { stdenv = stdenvTarget; } rec {
   pname = "llama-cpp-python";
-  version = "0.3.14";
+  version = "0.3.22";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "abetlen";
     repo = "llama-cpp-python";
     tag = "v${version}";
-    hash = "sha256-RJP2QkelqxZuEoxI3CHyenqUJdjw2MsZKUKM+UUxJB8=";
+    hash = "sha256-Mdz8aTBo3bwoqtjarXnQuNYjcaU+p4HKdMQfSoYwq60=";
     fetchSubmodules = true;
   };
-  # src = /home/gaetan/llama-cpp-python;
 
   dontUseCmakeConfigure = true;
-  SKBUILD_CMAKE_ARGS = lib.strings.concatStringsSep ";" (
+  cmakeFlags = [
     # Set GGML_NATIVE=off. Otherwise, cmake attempts to build with
     # -march=native* which is either a no-op (if cc-wrapper is able to ignore
     # it), or an attempt to build a non-reproducible binary.
@@ -61,22 +61,22 @@ buildPythonPackage rec {
     # -mcpu, breaking linux build as follows:
     #
     # cc1: error: unknown value ‘native+nodotprod+noi8mm+nosve’ for ‘-mcpu’
-    [
-      "-DGGML_NATIVE=off"
-      "-DGGML_BUILD_NUMBER=1"
-    ]
-    ++ lib.optionals cudaSupport [
-      "-DGGML_CUDA=on"
-      "-DCUDAToolkit_ROOT=${lib.getDev cudaPackages.cuda_nvcc}"
-      "-DCMAKE_CUDA_COMPILER=${lib.getExe cudaPackages.cuda_nvcc}"
-    ]
-  );
+    (lib.cmakeBool "GGML_NATIVE" false)
+  ]
+  ++ lib.optionals cudaSupport [
+    (lib.cmakeBool "GGML_CUDA" true)
+    (lib.cmakeFeature "CUDAToolkit_ROOT" "${lib.getDev cudaPackages.cuda_nvcc}")
+    (lib.cmakeFeature "CMAKE_CUDA_COMPILER" "${lib.getExe cudaPackages.cuda_nvcc}")
+  ];
 
   enableParallelBuilding = true;
 
   nativeBuildInputs = [
     cmake
     ninja
+  ]
+  ++ lib.optionals cudaSupport [
+    autoAddDriverRunpath
   ];
 
   build-system = [
@@ -93,8 +93,6 @@ buildPythonPackage rec {
       libcublas # cublas_v2.h
     ]
   );
-
-  stdenv = stdenvTarget;
 
   dependencies = [
     diskcache
@@ -115,7 +113,13 @@ buildPythonPackage rec {
     "test_real_llama"
   ];
 
-  pythonImportsCheck = [ "llama_cpp" ];
+  pythonImportsCheck = lib.optionals (!cudaSupport) [
+    # `libllama.so` is loaded at import time, and failing when cudaSupport is enabled as the cuda
+    # driver is missing in the sandbox:
+    # RuntimeError: Failed to load shared library '/nix/store/...-python3.13-llama-cpp-python-0.3.16/lib/python3.13/site-packages/llama_cpp/lib/libllama.so':
+    # libcuda.so.1: cannot open shared object file: No such file or directory
+    "llama_cpp"
+  ];
 
   passthru = {
     updateScript = gitUpdater {

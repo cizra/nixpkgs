@@ -9,11 +9,15 @@
   pkg-config,
   gtk3,
   libayatana-appindicator,
-  libX11,
-  libXcursor,
-  libXxf86vm,
-  netbird-ui,
+  libx11,
+  libxcursor,
+  libxxf86vm,
   versionCheckHook,
+  netbird-management,
+  netbird-relay,
+  netbird-signal,
+  netbird-ui,
+  netbird-upload,
   componentName ? "client",
 }:
 let
@@ -59,30 +63,29 @@ let
       license = lib.licenses.agpl3Only;
     };
   };
-  isUI = componentName == "ui";
   component = availableComponents.${componentName};
 in
 buildGoModule (finalAttrs: {
   pname = "netbird-${componentName}";
-  version = "0.54.0";
+  version = "0.70.4";
 
   src = fetchFromGitHub {
     owner = "netbirdio";
     repo = "netbird";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-qKYJa7q7scEbbxLHaosaurrjXR5ABxCAnuUcy80yKEc=";
+    hash = "sha256-tfScscRllUlV1V6D66rfT6JEsReDQfVGryVzNebm0vg=";
   };
 
-  vendorHash = "sha256-uVVm+iDGP2eZ5GVXWJrWZQ7LpHdZccRIiHPIFs6oAPo=";
+  vendorHash = "sha256-IRV1GxdUKgan0GwmBg9acpl7plW01CtEO2FrKrlDdeE=";
 
-  nativeBuildInputs = [ installShellFiles ] ++ lib.optional isUI pkg-config;
+  nativeBuildInputs = [ installShellFiles ] ++ lib.optional (componentName == "ui") pkg-config;
 
-  buildInputs = lib.optionals (stdenv.hostPlatform.isLinux && isUI) [
+  buildInputs = lib.optionals (stdenv.hostPlatform.isLinux && componentName == "ui") [
     gtk3
     libayatana-appindicator
-    libX11
-    libXcursor
-    libXxf86vm
+    libx11
+    libxcursor
+    libxxf86vm
   ];
 
   subPackages = [ component.module ];
@@ -122,25 +125,31 @@ buildGoModule (finalAttrs: {
             --zsh <($out/bin/${component.binaryName} completion zsh)
         ''
     # assemble & adjust netbird.desktop files for the GUI
-    + lib.optionalString (stdenv.hostPlatform.isLinux && isUI) ''
-      install -Dm644 "$src/client/ui/assets/netbird-systemtray-connected.png" "$out/share/pixmaps/netbird.png"
+    + lib.optionalString (stdenv.hostPlatform.isLinux && componentName == "ui") ''
+      install -Dm644 "$src/client/ui/assets/netbird-systemtray-connected.png" "$out/share/icons/hicolor/256x256/apps/netbird.png"
       install -Dm644 "$src/client/ui/build/netbird.desktop" "$out/share/applications/netbird.desktop"
 
       substituteInPlace $out/share/applications/netbird.desktop \
-        --replace-fail "Exec=/usr/bin/netbird-ui" "Exec=$out/bin/${component.binaryName}"
+        --replace-fail "Exec=/usr/bin/netbird-ui" "Exec=${component.binaryName}"
     '';
 
-  nativeInstallCheckInputs = [
+  nativeInstallCheckInputs = lib.lists.optionals (component ? versionCheckProgramArg) [
     versionCheckHook
   ];
   versionCheckProgram = "${placeholder "out"}/bin/${component.binaryName}";
   versionCheckProgramArg = component.versionCheckProgramArg or "version";
-  doInstallCheck = component ? versionCheckProgramArg;
 
   passthru = {
-    tests = {
+    tests = lib.attrsets.optionalAttrs (componentName == "client") {
       nixos = nixosTests.netbird;
-      withUI = netbird-ui;
+      inherit
+        # make sure child packages are built by `ofborg`
+        netbird-management
+        netbird-relay
+        netbird-signal
+        netbird-ui
+        netbird-upload
+        ;
     };
     updateScript = nix-update-script { };
   };

@@ -2,10 +2,9 @@
   lib,
   stdenv,
   callPackage,
-  ...
 }:
 let
-  version = "5.5.238";
+  version = "5.6.266";
   pname = "gdevelop";
   meta = {
     description = "Graphical Game Development Studio";

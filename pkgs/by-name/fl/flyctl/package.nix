@@ -1,24 +1,32 @@
 {
   lib,
+  stdenv,
   buildGoModule,
   fetchFromGitHub,
   testers,
   flyctl,
   installShellFiles,
+  git,
+  rake,
 }:
 
 buildGoModule rec {
   pname = "flyctl";
-  version = "0.3.169";
+  version = "0.4.42";
 
   src = fetchFromGitHub {
     owner = "superfly";
     repo = "flyctl";
     rev = "v${version}";
-    hash = "sha256-F2QMQ24+wSKH8zmTFSWsSl9O9+Hc4e7Rmn2K9YXJi4k=";
+    postCheckout = ''
+      cd "$out"
+      git rev-parse HEAD > COMMIT
+    '';
+    hash = "sha256-yAzd7bytBKxOBGs8ja48QPVdmJSvRfIzi8K2DoC0O+Y=";
   };
 
-  vendorHash = "sha256-boaz0fR97NtU/wzIE2uPbDmP89ovkzNy8bpe0nrItMw=";
+  proxyVendor = true;
+  vendorHash = "sha256-TUlOdRfexuxC2Of6ZHPYChCr3i1IGapLZz1/lAhnUxk=";
 
   subPackages = [ "." ];
 
@@ -30,13 +38,24 @@ buildGoModule rec {
   ];
   tags = [ "production" ];
 
-  nativeBuildInputs = [ installShellFiles ];
+  nativeBuildInputs = [
+    installShellFiles
+    git
+  ];
 
-  patches = [ ./disable-auto-update.patch ];
+  patches = [
+    ./disable-auto-update.patch
+    ./set-commit.patch
+  ];
 
   preBuild = ''
+    export GOFLAGS="$GOFLAGS -buildvcs=false"
+    substituteInPlace internal/buildinfo/buildinfo.go \
+      --replace '@commit@' "$(cat COMMIT)"
     GOOS= GOARCH= CGO_ENABLED=0 go generate ./...
   '';
+
+  nativeCheckInputs = [ rake ];
 
   preCheck = ''
     HOME=$(mktemp -d)
@@ -53,7 +72,7 @@ buildGoModule rec {
     runHook postCheck
   '';
 
-  postInstall = ''
+  postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
     installShellCompletion --cmd flyctl \
       --bash <($out/bin/flyctl completion bash) \
       --fish <($out/bin/flyctl completion fish) \
@@ -73,10 +92,9 @@ buildGoModule rec {
     homepage = "https://fly.io/";
     license = lib.licenses.asl20;
     maintainers = with lib.maintainers; [
-      adtya
-      jsierles
       techknowlogick
       RaghavSood
+      SchahinRohani
     ];
     mainProgram = "flyctl";
   };

@@ -16,7 +16,7 @@ let
       ''
         mkdir -p $out/bin
         makeWrapper ${cfg.package}/bin/dgraph $out/bin/dgraph \
-          --prefix PATH : "${lib.makeBinPath [ pkgs.nodejs ]}" \
+          --prefix PATH : "${lib.makeBinPath [ pkgs.nodejs ]}"
       '';
   securityOptions = {
     NoNewPrivileges = true;
@@ -75,7 +75,7 @@ in
         type = settingsFormat.type;
         default = { };
         description = ''
-          Contents of the dgraph config. For more details see https://dgraph.io/docs/deploy/config
+          Contents of the dgraph config. For more details see <https://dgraph.io/docs/deploy/config>
         '';
       };
 

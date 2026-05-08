@@ -8,13 +8,13 @@
 
 stdenvNoCC.mkDerivation rec {
   pname = "mint-themes";
-  version = "2.3.1";
+  version = "2.3.9";
 
   src = fetchFromGitHub {
     owner = "linuxmint";
     repo = "mint-themes";
     rev = version;
-    hash = "sha256-oBedc+laKUxCUqDmLXomu8oPEjXckznNSjm/DYDxKhM=";
+    hash = "sha256-Zvy/qqyzc6Yu6TJC+vbJ660MYeyX27LIm1TovwbRjMs=";
   };
 
   nativeBuildInputs = [
@@ -33,11 +33,11 @@ stdenvNoCC.mkDerivation rec {
     runHook postInstall
   '';
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/linuxmint/mint-themes";
     description = "Mint-X and Mint-Y themes for the cinnamon desktop";
-    license = licenses.gpl3; # from debian/copyright
-    platforms = platforms.linux;
-    teams = [ teams.cinnamon ];
+    license = lib.licenses.gpl3; # from debian/copyright
+    platforms = lib.platforms.linux;
+    teams = [ lib.teams.cinnamon ];
   };
 }

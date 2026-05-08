@@ -1,57 +1,47 @@
 {
   aiofiles,
   buildPythonPackage,
-  cryptography,
   deepdiff,
-  eval-type-backport,
   fetchFromGitHub,
+  httpcore,
   httpx,
   lib,
-  nest-asyncio,
-  poetry-core,
   pydantic,
   pypdf,
+  pypdfium2,
   pytest-asyncio,
   pytestCheckHook,
   python,
-  python-dateutil,
   requests-toolbelt,
-  typing-inspection,
+  setuptools,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "unstructured-client";
-  version = "0.38.1";
+  version = "0.43.2";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "Unstructured-IO";
     repo = "unstructured-python-client";
-    tag = "v${version}";
-    hash = "sha256-gzNPzS//7MU6nX3cA0p6dPqIG273VlGMU0ePyObn4d4=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-Y/qhgm+mmKNPZhx/km02i7sc31izQH72REXYrKY++OM=";
   };
 
   preBuild = ''
     ${python.interpreter} scripts/prepare_readme.py
   '';
 
-  build-system = [ poetry-core ];
-
-  pythonRelaxDeps = [
-    "pydantic"
-  ];
+  build-system = [ setuptools ];
 
   dependencies = [
     aiofiles
-    cryptography
-    eval-type-backport
+    httpcore
     httpx
-    nest-asyncio
     pydantic
     pypdf
-    python-dateutil
+    pypdfium2
     requests-toolbelt
-    typing-inspection
   ];
 
   pythonImportsCheck = [ "unstructured_client" ];
@@ -66,15 +56,16 @@ buildPythonPackage rec {
   enabledTestPaths = [
     "_test_unstructured_client"
   ];
+
   enabledTests = [
     "unit"
   ];
 
   meta = {
-    changelog = "https://github.com/Unstructured-IO/unstructured-python-client/blob/${src.tag}/RELEASES.md";
+    changelog = "https://github.com/Unstructured-IO/unstructured-python-client/blob/${finalAttrs.src.tag}/RELEASES.md";
     description = "Python Client SDK for Unstructured API";
     homepage = "https://github.com/Unstructured-IO/unstructured-python-client";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ dotlambda ];
   };
-}
+})

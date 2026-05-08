@@ -17,7 +17,7 @@ This is identical to:
 { buildInputs = [ androidStudioPackages.stable.full ]; }
 ```
 
-Alternatively, you can pass composeAndroidPackages to the `withSdk` passthru:
+Alternatively, you can pass composeAndroidPackages to the `withSdk` passthrough:
 
 ```nix
 {
@@ -27,7 +27,7 @@ Alternatively, you can pass composeAndroidPackages to the `withSdk` passthru:
 }
 ```
 
-These will export `ANDROID_SDK_ROOT` and `ANDROID_NDK_ROOT` to the SDK and NDK directories
+These will export `ANDROID_HOME` and `ANDROID_NDK_ROOT` to the SDK and NDK directories
 in the specified Android build environment.
 
 ## Deploying an Android SDK installation with plugins {#deploying-an-android-sdk-installation-with-plugins}
@@ -297,7 +297,7 @@ Note that running Android Studio with ANDROID_HOME set will automatically write 
 `local.properties` file with `sdk.dir` set to $ANDROID_HOME if one does not already
 exist. If you are using the NDK as well, you may have to add `ndk.dir` to this file.
 
-An example shell.nix that does all this for you is provided in examples/shell.nix.
+An example `shell.nix` that does all this for you is provided in `examples/shell.nix`.
 This shell.nix includes a shell hook that overwrites local.properties with the correct
 sdk.dir and ndk.dir values. This will ensure that the SDK and NDK directories will
 both be correct when you run Android Studio inside nix-shell.

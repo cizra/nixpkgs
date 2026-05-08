@@ -1,45 +1,50 @@
 {
   lib,
   buildPythonPackage,
-  fetchPypi,
-  pythonOlder,
+  fetchFromGitHub,
 
   # build-system
   hatchling,
   hatch-vcs,
 
   # dependencies
-  asciitree,
   donfig,
   numpy,
-  fasteners,
   numcodecs,
+  google-crc32c,
+  packaging,
   typing-extensions,
 
-  # tests
-  pytestCheckHook,
-  pytest-asyncio,
-  pytest-cov-stub,
-  hypothesis,
-  aiohttp,
+  # optional-dependencies
+  # remote
   fsspec,
-  moto,
-  requests,
+  obstore ? null, # TODO: Package
+  # gpu
+  cupy,
+  # cli
+  typer,
+  # optional
+  rich,
+  universal-pathlib,
+
+  # test
+  hypothesis,
+  numpydoc,
+  pytest-asyncio,
+  pytestCheckHook,
   tomlkit,
-  uv,
-  writableTmpDirAsHomeHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "zarr";
-  version = "3.1.0";
+  version = "3.1.5";
   pyproject = true;
 
-  disabled = pythonOlder "3.11";
-
-  src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-rOWxEdxp1TFcsWVd/Q+BbFrPl5jSrZL0O2CKUsjIrCs=";
+  src = fetchFromGitHub {
+    owner = "zarr-developers";
+    repo = "zarr-python";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-1Kx8gN1JiaY4eHmwpdilvJ8+NdnzxhDvn7YZjphgtZw=";
   };
 
   build-system = [
@@ -48,46 +53,47 @@ buildPythonPackage rec {
   ];
 
   dependencies = [
-    asciitree
     donfig
-    numpy
-    fasteners
     numcodecs
+    google-crc32c
+    numpy
+    packaging
     typing-extensions
-  ]
-  ++ numcodecs.optional-dependencies.crc32c;
+  ];
 
-  optional-dependencies = {
-    remote = [ fsspec ];
+  passthru = {
+    optional-dependencies = {
+      remote = [
+        fsspec
+        obstore
+      ];
+      gpu = [
+        cupy
+      ];
+      cli = [
+        typer
+      ];
+      optional = [
+        rich
+        universal-pathlib
+      ];
+    };
   };
 
   nativeCheckInputs = [
-    pytestCheckHook
-    pytest-asyncio
-    pytest-cov-stub
     hypothesis
-    aiohttp
-    moto
-    requests
+    numpydoc
+    pytest-asyncio
+    pytestCheckHook
     tomlkit
-    uv
-    writableTmpDirAsHomeHook
   ]
-  ++ moto.optional-dependencies.s3
-  ++ moto.optional-dependencies.server
-  ++ optional-dependencies.remote;
-  pytestFlagsArray = [
-    # Don't measure the time it takes for hypothesis related tests to succeed.
-    # See https://github.com/astropy/astropy/issues/17649 for a similar
-    # discussion, and see:
-    # https://github.com/zarr-developers/zarr-python/blob/v3.0.4/tests/conftest.py#L182C1-L187C2
-    "--hypothesis-profile=ci"
-  ];
-  disabledTests = [
-    # 3 tests that require multiple Python versions to co-exist
-    "test_scripts_can_run"
-    "test_roundtrip_v2"
-    "test_roundtrip_v3"
+  ++ finalAttrs.finalPackage.passthru.optional-dependencies.cli;
+
+  disabledTestPaths = [
+    # requires uv and then fails at setting up python envs
+    "tests/test_examples.py::test_scripts_can_run[script_path0]"
+    # Requires zarr==2.x to generate zarr stores for the tests
+    "tests/test_regression"
   ];
 
   pythonImportsCheck = [ "zarr" ];
@@ -95,8 +101,8 @@ buildPythonPackage rec {
   meta = {
     description = "Implementation of chunked, compressed, N-dimensional arrays for Python";
     homepage = "https://github.com/zarr-developers/zarr";
-    changelog = "https://github.com/zarr-developers/zarr-python/releases/tag/v${version}";
+    changelog = "https://github.com/zarr-developers/zarr-python/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ doronbehar ];
   };
-}
+})

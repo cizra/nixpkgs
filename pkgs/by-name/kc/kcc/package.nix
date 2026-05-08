@@ -2,6 +2,8 @@
   lib,
   python3,
   fetchFromGitHub,
+  makeDesktopItem,
+  copyDesktopItems,
 
   qt6,
   archiveSupport ? true,
@@ -11,21 +13,27 @@
   nix-update-script,
 }:
 
-python3.pkgs.buildPythonApplication rec {
+python3.pkgs.buildPythonApplication (finalAttrs: {
   pname = "kcc";
-  version = "9.0.0";
+  version = "9.6.2";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "ciromattia";
     repo = "kcc";
-    tag = "v${version}";
-    hash = "sha256-J4nuVY5eOmHziteLvoBf/+CAY0X/7wBbRtPoIgdd5MA=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-Yix0uqSHeWcNw9r0SOhYqTw8A/fTUh3HAOnbgNaQndY=";
   };
 
-  nativeBuildInputs = [ qt6.wrapQtAppsHook ];
+  nativeBuildInputs = [
+    qt6.wrapQtAppsHook
+    copyDesktopItems
+  ];
 
-  buildInputs = [ qt6.qtbase ];
+  buildInputs = [
+    qt6.qtbase
+    qt6.qtwayland
+  ];
 
   build-system = with python3.pkgs; [ setuptools ];
 
@@ -51,25 +59,42 @@ python3.pkgs.buildPythonApplication rec {
     "\${qtWrapperArgs[@]}"
   ]
   ++ lib.optionals archiveSupport [
-    ''--prefix PATH : ${lib.makeBinPath [ p7zip ]}''
+    "--prefix PATH : ${lib.makeBinPath [ p7zip ]}"
   ];
 
   nativeInstallCheckInputs = [ versionCheckHook ];
   versionCheckProgram = "${placeholder "out"}/bin/kcc-c2e";
 
+  postInstall = ''
+    install -Dm644 \
+      icons/comic2ebook.png \
+      "$out/share/icons/hicolor/256x256/apps/kcc.png"
+  '';
+
   passthru = {
     updateScript = nix-update-script { };
   };
+
+  desktopItems = [
+    (makeDesktopItem {
+      name = "kcc";
+      exec = "kcc";
+      icon = "kcc";
+      desktopName = "Kindle Comic Converter";
+      comment = "A comic and manga converter for ebook readers";
+      categories = [ "Graphics" ];
+    })
+  ];
 
   meta = {
     description = "Python app to convert comic/manga files or folders to EPUB, Panel View MOBI or E-Ink optimized CBZ";
     homepage = "https://kcc.iosphe.re";
     mainProgram = "kcc";
-    changelog = "https://github.com/ciromattia/kcc/releases/tag/v${version}";
+    changelog = "https://github.com/ciromattia/kcc/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.isc;
     maintainers = with lib.maintainers; [
       dawidsowa
       adfaure
     ];
   };
-}
+})

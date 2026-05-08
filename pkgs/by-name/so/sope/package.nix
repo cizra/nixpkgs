@@ -14,15 +14,16 @@
 
 clangStdenv.mkDerivation rec {
   pname = "sope";
-  version = "5.12.2";
+  version = "5.12.7";
 
   src = fetchFromGitHub {
     owner = "Alinto";
     repo = "sope";
     rev = "SOPE-${version}";
-    hash = "sha256-GeJ1o8Juw7jm3/pkfuMqVpfMxKewU6hQmBoPmb0HgTc=";
+    hash = "sha256-0G28qDXygDe/TJ2znNE+NVQry3bkqUO59jqtJm/t2S4=";
   };
 
+  nativeBuildInputs = lib.optional (libpq != null) [ libpq.pg_config ];
   buildInputs = [
     gnustep-base
     libxml2
@@ -70,10 +71,10 @@ clangStdenv.mkDerivation rec {
 
   meta = {
     description = "Extensive set of frameworks which form a complete Web application server environment";
-    license = lib.licenses.publicDomain;
-    homepage = "https://github.com/inverse-inc/sope";
+    license = lib.licenses.lgpl2Plus;
+    homepage = "https://github.com/Alinto/sope";
     platforms = lib.platforms.linux;
     maintainers = with lib.maintainers; [ jceb ];
-    knownVulnerabilities = [ "CVE-2025-53603" ];
+    knownVulnerabilities = [ ];
   };
 }

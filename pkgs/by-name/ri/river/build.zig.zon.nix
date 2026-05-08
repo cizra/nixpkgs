@@ -8,6 +8,14 @@
 
 linkFarm "zig-packages" [
   {
+    name = "aro-0.0.0-JSD1Qi7QNgDnfcrdEJf82v3o6MhZySjYVrtdfEf3E4Se";
+    path = fetchgit {
+      url = "https://github.com/Vexu/arocc";
+      rev = "5f5a050569a95ecc40a426f0c3666ae7ef987ede";
+      hash = "sha256-f8Z0SXWx5Uia2TCMB5SUpcO8+xUnaWk32Oknva7xcxw=";
+    };
+  }
+  {
     name = "pixman-0.3.0-LClMnz2VAAAs7QSCGwLimV5VUYx0JFnX5xWU6HwtMuDX";
     path = fetchzip {
       url = "https://codeberg.org/ifreund/zig-pixman/archive/v0.3.0.tar.gz";
@@ -15,17 +23,25 @@ linkFarm "zig-packages" [
     };
   }
   {
-    name = "wayland-0.3.0-lQa1kjPIAQDmhGYpY-zxiRzQJFHQ2VqhJkQLbKKdt5wl";
-    path = fetchzip {
-      url = "https://codeberg.org/ifreund/zig-wayland/archive/v0.3.0.tar.gz";
-      hash = "sha256-ydEavD9z20wRwn9ZVX56ZI2T5i1tnm3LupVxfa30o84=";
+    name = "translate_c-0.0.0-Q_BUWlX1BgCD1wo6uo97prlp9VJ4gxAjwN_vZ7nsSjGN";
+    path = fetchgit {
+      url = "https://codeberg.org/ziglang/translate-c/";
+      rev = "57c559cf581b1fcad90494eda219f98abeb155ce";
+      hash = "sha256-7OlW2f5tRc1UZySDcEQERsLGChSxIcJAiVWdvuFUvvY=";
     };
   }
   {
-    name = "wlroots-0.19.2-jmOlcsnnAwDFAeOamkUaxyHNhKngH4Ai5rrLSVbqA8LW";
+    name = "wayland-0.6.0-lQa1kqz8AQADQmdNJsNhLoNHcnEGEUjrOaPV-dtEnEmX";
     path = fetchzip {
-      url = "https://codeberg.org/ifreund/zig-wlroots/archive/v0.19.2.tar.gz";
-      hash = "sha256-BMNvnRJdM8qhqtm2Do7l5LdD1INDXD3t0ykPHYwyI6U=";
+      url = "https://codeberg.org/ifreund/zig-wayland/archive/v0.6.0.tar.gz";
+      hash = "sha256-3m/ITNhZUJ/5uD/Tqm+0uZSktGoYgWF5oldOqOCUkIE=";
+    };
+  }
+  {
+    name = "wlroots-0.20.1-jmOlcqNVBAB3uB5oqBTzpRlwu-FmMyyZMVAWCe5kmcSt";
+    path = fetchzip {
+      url = "https://codeberg.org/ifreund/zig-wlroots/archive/v0.20.1.tar.gz";
+      hash = "sha256-cfzHJ2ziiCkMyNlIo6I9o/NjaZGrsv22hq41WYwCnpk=";
     };
   }
   {
@@ -33,6 +49,13 @@ linkFarm "zig-packages" [
     path = fetchzip {
       url = "https://codeberg.org/ifreund/zig-xkbcommon/archive/v0.3.0.tar.gz";
       hash = "sha256-e5bPEfxl4SQf0cqccLt/py1KOW1+Q1+kWZUEXBbh9oQ=";
+    };
+  }
+  {
+    name = "xkbcommon-0.4.0-VDqIe0i2AgDRsok2GpMFYJ8SVhQS10_PI2M_CnHXsJJZ";
+    path = fetchzip {
+      url = "https://codeberg.org/ifreund/zig-xkbcommon/archive/v0.4.0.tar.gz";
+      hash = "sha256-zQkmP/cuhAtjOLqYS5D15khKzpqyhbyZ0TD6/8jOkqE=";
     };
   }
 ]

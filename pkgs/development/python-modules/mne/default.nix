@@ -2,6 +2,8 @@
   lib,
   buildPythonPackage,
   fetchFromGitHub,
+  pythonAtLeast,
+  stdenv,
   hatchling,
   hatch-vcs,
   numpy,
@@ -21,23 +23,20 @@
   lazy-loader,
   h5io,
   pymatreader,
-  pythonOlder,
   procps,
   optipng,
 }:
 
 buildPythonPackage rec {
   pname = "mne";
-  version = "1.10.0";
+  version = "1.12.1";
   pyproject = true;
-
-  disabled = pythonOlder "3.10";
 
   src = fetchFromGitHub {
     owner = "mne-tools";
     repo = "mne-python";
     tag = "v${version}";
-    hash = "sha256-j0kPtw00gV50Nuh/b4+Jq6P7pQVRgr4/xMTwRSyzJcU=";
+    hash = "sha256-8PzYTG8z35IG0nVegoPaJB/vpULujqHDd2VtLeXS0SQ=";
   };
 
   postPatch = ''
@@ -78,7 +77,7 @@ buildPythonPackage rec {
     pytest-timeout
     writableTmpDirAsHomeHook
   ]
-  ++ lib.flatten (builtins.attrValues optional-dependencies);
+  ++ lib.concatAttrValues optional-dependencies;
 
   preCheck = ''
     export MNE_SKIP_TESTING_DATASET_TESTS=true
@@ -93,6 +92,11 @@ buildPythonPackage rec {
     # flaky
     "test_fine_cal_systems"
     "test_simulate_raw_bem"
+  ]
+  ++ lib.optionals (stdenv.hostPlatform.isLinux && stdenv.hostPlatform.isAarch64) [
+    # Fails when no "model name" is present in /proc/cpuinfo,
+    # which is common on Arm Linux systems
+    "test_sys_info_basic"
   ];
 
   pytestFlag = [
@@ -112,11 +116,10 @@ buildPythonPackage rec {
     description = "Magnetoencephelography and electroencephalography in Python";
     mainProgram = "mne";
     homepage = "https://mne.tools";
-    changelog = "https://mne.tools/stable/changes/${version}.html";
+    changelog = "https://mne.tools/stable/changes/v${lib.versions.majorMinor version}.html";
     license = lib.licenses.bsd3;
     maintainers = with lib.maintainers; [
       bcdarwin
-      mbalatsko
     ];
   };
 }

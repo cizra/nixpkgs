@@ -5,22 +5,18 @@
   installShellFiles,
 }:
 
-let
+buildGoModule (finalAttrs: {
   pname = "openfga";
-  version = "1.9.2";
-in
-
-buildGoModule {
-  inherit pname version;
+  version = "1.14.2";
 
   src = fetchFromGitHub {
     owner = "openfga";
     repo = "openfga";
-    rev = "v${version}";
-    hash = "sha256-jddtLyAvvY+I/vpXA7e40efxUfL4AjcEGwUiq1jccDg=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-nY5HRkZCKgjr1a5XxxRcUwCms9PCQs3IZiFgAEaD7To=";
   };
 
-  vendorHash = "sha256-pDMf792e4U9s/ugQ2jto4HbtFEh3nXHTK71Hb5XnHB4=";
+  vendorHash = "sha256-q5NZLPtdwFeHzLi+ZmRzGScxkl0OOxTVo/W6yUL1lO8=";
 
   nativeBuildInputs = [ installShellFiles ];
 
@@ -31,8 +27,8 @@ buildGoModule {
     [
       "-s"
       "-w"
-      "-X ${buildInfoPkg}.Version=${version}"
-      "-X ${buildInfoPkg}.Commit=${version}"
+      "-X ${buildInfoPkg}.Version=${finalAttrs.version}"
+      "-X ${buildInfoPkg}.Commit=${finalAttrs.version}"
       "-X ${buildInfoPkg}.Date=19700101"
     ];
 
@@ -55,4 +51,4 @@ buildGoModule {
     mainProgram = "openfga";
     maintainers = with lib.maintainers; [ jlesquembre ];
   };
-}
+})

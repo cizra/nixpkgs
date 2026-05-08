@@ -15,7 +15,6 @@
   bintools,
   coreutils ? null,
   apple-sdk ? null,
-  zlib ? null,
   nativeTools,
   noLibc ? false,
   nativeLibc,
@@ -94,18 +93,20 @@ let
     getLib
     getName
     getVersion
+    hasPrefix
     mapAttrsToList
     optional
     optionalAttrs
     optionals
     optionalString
     removePrefix
+    removeSuffix
     replaceStrings
     toList
     versionAtLeast
     ;
 
-  inherit (stdenvNoCC) hostPlatform targetPlatform;
+  inherit (stdenvNoCC) buildPlatform hostPlatform targetPlatform;
 
   includeFortifyHeaders' =
     if includeFortifyHeaders != null then
@@ -117,6 +118,7 @@ let
   #
   # TODO(@Ericson2314) Make unconditional, or optional but always true by default.
   targetPrefix = optionalString (targetPlatform != hostPlatform) (targetPlatform.config + "-");
+  exeSuffix = stdenvNoCC.hostPlatform.extensions.executable;
 
   ccVersion = getVersion cc;
   ccName = removePrefix targetPrefix (getName cc);
@@ -124,7 +126,12 @@ let
   libc_bin = optionalString (libc != null) (getBin libc);
   libc_dev = optionalString (libc != null) (getDev libc);
   libc_lib = optionalString (libc != null) (getLib libc);
-  cc_solib = getLib cc + optionalString (targetPlatform != hostPlatform) "/${targetPlatform.config}";
+  cc_solib =
+    optionalString (!nativeTools) (getLib cc)
+    + optionalString (targetPlatform != hostPlatform) "/${targetPlatform.config}";
+  cc_bin =
+    optionalString (!nativeTools) (getBin cc)
+    + optionalString (targetPlatform != hostPlatform) "/${targetPlatform.config}";
 
   # The wrapper scripts use 'cat' and 'grep', so we may need coreutils.
   coreutils_bin = optionalString (!nativeTools) (getBin coreutils);
@@ -188,6 +195,7 @@ let
         cooperlake = versionAtLeast ccVersion "10.0";
         tigerlake = versionAtLeast ccVersion "10.0";
         knm = versionAtLeast ccVersion "8.0";
+        rocketlake = versionAtLeast ccVersion "11.0";
         alderlake = versionAtLeast ccVersion "12.0";
         sapphirerapids = versionAtLeast ccVersion "11.0";
         emeraldrapids = versionAtLeast ccVersion "13.0";
@@ -221,6 +229,7 @@ let
         icelake-client = versionAtLeast ccVersion "7.0";
         icelake-server = versionAtLeast ccVersion "7.0";
         knm = versionAtLeast ccVersion "7.0";
+        rocketlake = versionAtLeast ccVersion "13.0";
         alderlake = versionAtLeast ccVersion "16.0";
         sapphirerapids = versionAtLeast ccVersion "12.0";
         emeraldrapids = versionAtLeast ccVersion "16.0";
@@ -363,6 +372,22 @@ let
     else
       targetPlatform.darwinPlatform
   );
+
+  # Header files that use `__FILE__` (e.g., for error reporting) lead
+  # to unwanted references to development packages and outputs in built
+  # binaries, like C++ programs depending on GCC and Boost at runtime.
+  #
+  # We use `-fmacro-prefix-map` to avoid the store references in these
+  # situations while keeping them in compiler diagnostics and debugging
+  # and profiling output.
+  #
+  # Unfortunately, doing this with GCC runs into issues with compiler
+  # argument length limits due to <https://gcc.gnu.org/PR111527>, so we
+  # disable it there in favour of our existing patch.
+  #
+  # TODO: Drop `mangle-NIX_STORE-in-__FILE__.patch` from GCC and make
+  # this unconditional once the upstream bug is fixed.
+  useMacroPrefixMap = !isGNU;
 in
 
 assert includeFortifyHeaders' -> fortify-headers != null;
@@ -428,6 +453,13 @@ stdenvNoCC.mkDerivation {
     inherit nixSupport;
 
     inherit defaultHardeningFlags;
+  }
+  // optionalAttrs cc.langGo or false {
+    # So gccgo looks more like go for buildGoModule
+
+    inherit (targetPlatform.go) GOOS GOARCH GOARM;
+
+    CGO_ENABLED = 1;
   };
 
   dontBuild = true;
@@ -454,6 +486,14 @@ stdenvNoCC.mkDerivation {
       export use_response_file_by_default=${if isClang && !isCcache then "1" else "0"}
       substituteAll "$wrapper" "$out/bin/$dst"
       chmod +x "$out/bin/$dst"
+    }
+
+    include() {
+      printf -- '%s %s\n' "$1" "$2"
+      ${lib.optionalString useMacroPrefixMap ''
+        local scrubbed="$NIX_STORE/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee-''${2#"$NIX_STORE"/*-}"
+        printf -- '-fmacro-prefix-map=%s=%s\n' "$2" "$scrubbed"
+      ''}
     }
   ''
 
@@ -487,34 +527,34 @@ stdenvNoCC.mkDerivation {
     export named_cc=${targetPrefix}cc
     export named_cxx=${targetPrefix}c++
 
-    if [ -e $ccPath/${targetPrefix}gcc ]; then
-      wrap ${targetPrefix}gcc $wrapper $ccPath/${targetPrefix}gcc
+    if [ -e $ccPath/${targetPrefix}gcc${exeSuffix} ]; then
+      wrap ${targetPrefix}gcc $wrapper $ccPath/${targetPrefix}gcc${exeSuffix}
       ln -s ${targetPrefix}gcc $out/bin/${targetPrefix}cc
       export named_cc=${targetPrefix}gcc
       export named_cxx=${targetPrefix}g++
-    elif [ -e $ccPath/clang ]; then
-      wrap ${targetPrefix}clang $wrapper $ccPath/clang
+    elif [ -e $ccPath/clang${exeSuffix} ]; then
+      wrap ${targetPrefix}clang $wrapper $ccPath/clang${exeSuffix}
       ln -s ${targetPrefix}clang $out/bin/${targetPrefix}cc
       export named_cc=${targetPrefix}clang
       export named_cxx=${targetPrefix}clang++
-    elif [ -e $ccPath/arocc ]; then
-      wrap ${targetPrefix}arocc $wrapper $ccPath/arocc
+    elif [ -e $ccPath/arocc${exeSuffix} ]; then
+      wrap ${targetPrefix}arocc $wrapper $ccPath/arocc${exeSuffix}
       ln -s ${targetPrefix}arocc $out/bin/${targetPrefix}cc
       export named_cc=${targetPrefix}arocc
     fi
 
-    if [ -e $ccPath/${targetPrefix}g++ ]; then
-      wrap ${targetPrefix}g++ $wrapper $ccPath/${targetPrefix}g++
+    if [ -e $ccPath/${targetPrefix}g++${exeSuffix} ]; then
+      wrap ${targetPrefix}g++ $wrapper $ccPath/${targetPrefix}g++${exeSuffix}
       ln -s ${targetPrefix}g++ $out/bin/${targetPrefix}c++
-    elif [ -e $ccPath/clang++ ]; then
-      wrap ${targetPrefix}clang++ $wrapper $ccPath/clang++
+    elif [ -e $ccPath/clang++${exeSuffix} ]; then
+      wrap ${targetPrefix}clang++ $wrapper $ccPath/clang++${exeSuffix}
       ln -s ${targetPrefix}clang++ $out/bin/${targetPrefix}c++
     fi
 
-    if [ -e $ccPath/${targetPrefix}cpp ]; then
-      wrap ${targetPrefix}cpp $wrapper $ccPath/${targetPrefix}cpp
-    elif [ -e $ccPath/cpp ]; then
-      wrap ${targetPrefix}cpp $wrapper $ccPath/cpp
+    if [ -e $ccPath/${targetPrefix}cpp${exeSuffix} ]; then
+      wrap ${targetPrefix}cpp $wrapper $ccPath/${targetPrefix}cpp${exeSuffix}
+    elif [ -e $ccPath/cpp${exeSuffix} ]; then
+      wrap ${targetPrefix}cpp $wrapper $ccPath/cpp${exeSuffix}
     fi
   ''
 
@@ -534,19 +574,11 @@ stdenvNoCC.mkDerivation {
     ln -sf ${cc} $out/nix-support/gprconfig-gnat-unwrapped
   ''
 
-  + optionalString cc.langD or false ''
-    wrap ${targetPrefix}gdc $wrapper $ccPath/${targetPrefix}gdc
-  ''
-
   + optionalString cc.langFortran or false ''
     wrap ${targetPrefix}gfortran $wrapper $ccPath/${targetPrefix}gfortran
     ln -sv ${targetPrefix}gfortran $out/bin/${targetPrefix}g77
     ln -sv ${targetPrefix}gfortran $out/bin/${targetPrefix}f77
     export named_fc=${targetPrefix}gfortran
-  ''
-
-  + optionalString cc.langJava or false ''
-    wrap ${targetPrefix}gcj $wrapper $ccPath/${targetPrefix}gcj
   ''
 
   + optionalString cc.langGo or false ''
@@ -558,8 +590,7 @@ stdenvNoCC.mkDerivation {
   propagatedBuildInputs = [
     bintools
   ]
-  ++ extraTools
-  ++ optionals cc.langD or cc.langJava or false [ zlib ];
+  ++ extraTools;
   depsTargetTargetPropagated = optional (libcxx != null) libcxx ++ extraPackages;
 
   setupHooks = [
@@ -567,15 +598,25 @@ stdenvNoCC.mkDerivation {
   ]
   ++ optional (cc.langC or true) ./setup-hook.sh
   ++ optional (cc.langFortran or false) ./fortran-hook.sh
-  ++ optional (targetPlatform.isWindows) (
+  ++ optional (targetPlatform.isWindows || targetPlatform.isCygwin) (
     stdenvNoCC.mkDerivation {
       name = "win-dll-hook.sh";
       dontUnpack = true;
-      installPhase = ''
-        echo addToSearchPath "LINK_DLL_FOLDERS" "${cc_solib}/lib" > $out
-        echo addToSearchPath "LINK_DLL_FOLDERS" "${cc_solib}/lib64" >> $out
-        echo addToSearchPath "LINK_DLL_FOLDERS" "${cc_solib}/lib32" >> $out
-      '';
+      installPhase =
+        if targetPlatform.isCygwin then
+          ''
+            echo addToSearchPath "_linkDeps_inputPath" "${cc_solib}/bin" >> $out
+            # Work around build failure caused by the gnulib workaround for
+            # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=114870. remove after
+            # gnulib is updated in core packages (e.g. iconv, gnupatch, gnugrep)
+            echo appendToVar configureFlags gl_cv_clean_version_stddef=yes >> $out
+          ''
+        else
+          ''
+            echo addToSearchPath "LINK_DLL_FOLDERS" "${cc_solib}/lib" > $out
+            echo addToSearchPath "LINK_DLL_FOLDERS" "${cc_solib}/lib64" >> $out
+            echo addToSearchPath "LINK_DLL_FOLDERS" "${cc_solib}/lib32" >> $out
+          '';
     }
   );
 
@@ -660,7 +701,7 @@ stdenvNoCC.mkDerivation {
     #
     # Unfortunately, setting -B appears to override the default search
     # path. Thus, the gcc-specific "../includes-fixed" directory is
-    # now longer searched and glibc's <limits.h> header fails to
+    # no longer searched and glibc's <limits.h> header fails to
     # compile, because it uses "#include_next <limits.h>" to find the
     # limits.h file in ../includes-fixed. To remedy the problem,
     # another -idirafter is necessary to add that directory again.
@@ -672,15 +713,20 @@ stdenvNoCC.mkDerivation {
       + optionalString (!isArocc) ''
         echo "-B${libc_lib}${libc.libdir or "/lib/"}" >> $out/nix-support/libc-crt1-cflags
       ''
-      + optionalString (!(cc.langD or false)) ''
-        echo "-${
+      + ''
+        include "-${
           if isArocc then "I" else "idirafter"
-        } ${libc_dev}${libc.incdir or "/include"}" >> $out/nix-support/libc-cflags
+        }" "${libc_dev}${libc.incdir or "/include"}" >> $out/nix-support/libc-cflags
       ''
-      + optionalString (isGNU && (!(cc.langD or false))) ''
+      + optionalString isGNU ''
         for dir in "${cc}"/lib/gcc/*/*/include-fixed; do
-          echo '-idirafter' ''${dir} >> $out/nix-support/libc-cflags
+          include '-idirafter' ''${dir} >> $out/nix-support/libc-cflags
         done
+      ''
+      + optionalString (libc.w32api or null != null) ''
+        echo '-idirafter ${lib.getDev libc.w32api}${
+          libc.incdir or "/include/w32api"
+        }' >> $out/nix-support/libc-cflags
       ''
       + ''
 
@@ -695,7 +741,7 @@ stdenvNoCC.mkDerivation {
       # like option that forces the libc headers before all -idirafter,
       # hence -isystem here.
       + optionalString includeFortifyHeaders' ''
-        echo "-isystem ${fortify-headers}/include" >> $out/nix-support/libc-cflags
+        include -isystem "${fortify-headers}/include" >> $out/nix-support/libc-cflags
       ''
     )
 
@@ -718,19 +764,19 @@ stdenvNoCC.mkDerivation {
     # https://github.com/NixOS/nixpkgs/pull/209870#issuecomment-1500550903)
     + optionalString (libcxx == null && isClang && (useGccForLibs && gccForLibs.langCC or false)) ''
       for dir in ${gccForLibs}/include/c++/*; do
-        echo "-isystem $dir" >> $out/nix-support/libcxx-cxxflags
+        include -cxx-isystem "$dir" >> $out/nix-support/libcxx-cxxflags
       done
       for dir in ${gccForLibs}/include/c++/*/${targetPlatform.config}; do
-        echo "-isystem $dir" >> $out/nix-support/libcxx-cxxflags
+        include -cxx-isystem "$dir" >> $out/nix-support/libcxx-cxxflags
       done
     ''
     + optionalString (libcxx.isLLVM or false) ''
-      echo "-isystem ${getDev libcxx}/include/c++/v1" >> $out/nix-support/libcxx-cxxflags
+      include -cxx-isystem "${getDev libcxx}/include/c++/v1" >> $out/nix-support/libcxx-cxxflags
       echo "-stdlib=libc++" >> $out/nix-support/libcxx-ldflags
     ''
     # GCC NG friendly libc++
     + optionalString (libcxx != null && libcxx.isGNU or false) ''
-      echo "-isystem ${getDev libcxx}/include" >> $out/nix-support/libcxx-cxxflags
+      include -isystem "${getDev libcxx}/include" >> $out/nix-support/libcxx-cxxflags
     ''
 
     ##
@@ -742,29 +788,31 @@ stdenvNoCC.mkDerivation {
     # This confuses libtool.  So add it to the compiler tool search
     # path explicitly.
     + optionalString (!nativeTools && !isArocc) ''
+      ccLDFlags=()
+      ccCFlags=()
       if [ -e "${cc_solib}/lib64" -a ! -L "${cc_solib}/lib64" ]; then
-        ccLDFlags+=" -L${cc_solib}/lib64"
-        ccCFlags+=" -B${cc_solib}/lib64"
+        ccLDFlags+=("-L${cc_solib}/lib64")
+        ccCFlags+=("-B${cc_solib}/lib64")
       fi
-      ccLDFlags+=" -L${cc_solib}/lib"
-      ccCFlags+=" -B${cc_solib}/lib"
+      ccLDFlags+=("-L${cc_solib}/lib")
+      ccCFlags+=("-B${cc_solib}/lib")
 
     ''
     + optionalString (cc.langAda or false && !isArocc) ''
       touch "$out/nix-support/gnat-cflags"
       touch "$out/nix-support/gnat-ldflags"
       basePath=$(echo $cc/lib/*/*/*)
-      ccCFlags+=" -B$basePath -I$basePath/adainclude"
+      ccCFlags+=("-B$basePath" "-I$basePath/adainclude")
       gnatCFlags="-I$basePath/adainclude -I$basePath/adalib"
 
       echo "$gnatCFlags" >> $out/nix-support/gnat-cflags
     ''
     + ''
-      echo "$ccLDFlags" >> $out/nix-support/cc-ldflags
-      echo "$ccCFlags" >> $out/nix-support/cc-cflags
+      echo "''${ccLDFlags[*]}" >> $out/nix-support/cc-ldflags
+      echo "''${ccCFlags[*]}" >> $out/nix-support/cc-cflags
     ''
     + optionalString (targetPlatform.isDarwin && (libcxx != null) && (cc.isClang or false)) ''
-      echo " -L${libcxx_solib}" >> $out/nix-support/cc-ldflags
+      echo "-L${libcxx_solib}" >> $out/nix-support/cc-ldflags
     ''
 
     ## Prevent clang from seeing /usr/include. There is a desire to achieve this
@@ -786,7 +834,7 @@ stdenvNoCC.mkDerivation {
           && !targetPlatform.isAndroid
         )
         ''
-          echo " -nostdlibinc" >> $out/nix-support/cc-cflags
+          echo "-nostdlibinc" >> $out/nix-support/cc-cflags
         ''
 
     ##
@@ -795,9 +843,6 @@ stdenvNoCC.mkDerivation {
     + optionalString propagateDoc ''
       ln -s ${cc.man} $man
       ln -s ${cc.info} $info
-    ''
-    + optionalString (cc.langD or cc.langJava or false && !isArocc) ''
-      echo "-B${zlib}${zlib.libdir or "/lib/"}" >> $out/nix-support/libc-cflags
     ''
 
     ##
@@ -826,7 +871,7 @@ stdenvNoCC.mkDerivation {
           );
       in
       optionalString enable_fp ''
-        echo " -fno-omit-frame-pointer ${optionalString enable_leaf_fp "-mno-omit-leaf-frame-pointer "}" >> $out/nix-support/cc-cflags-before
+        echo "-fno-omit-frame-pointer${optionalString enable_leaf_fp " -mno-omit-leaf-frame-pointer"}" >> $out/nix-support/cc-cflags-before
       ''
     )
 
@@ -857,10 +902,10 @@ stdenvNoCC.mkDerivation {
     + optionalString cc.langAda or false ''
       hardening_unsupported_flags+=" format stackprotector strictoverflow"
     ''
-    + optionalString cc.langD or false ''
+    + optionalString cc.langFortran or false ''
       hardening_unsupported_flags+=" format"
     ''
-    + optionalString cc.langFortran or false ''
+    + optionalString cc.langGo or false ''
       hardening_unsupported_flags+=" format"
     ''
     + optionalString targetPlatform.isWasm ''
@@ -901,12 +946,24 @@ stdenvNoCC.mkDerivation {
     ## General Clang support
     ## Needs to go after ^ because the for loop eats \n and makes this file an invalid script
     ##
-    + optionalString isClang ''
-      # Escape twice: once for this script, once for the one it gets substituted into.
-      export machineFlags=${escapeShellArg (escapeShellArgs machineFlags)}
-      export defaultTarget=${targetPlatform.config}
-      substituteAll ${./add-clang-cc-cflags-before.sh} $out/nix-support/add-local-cc-cflags-before.sh
-    ''
+    + optionalString isClang (
+      let
+        hasUnsupportedGnuSuffix = hasPrefix "gnuabielfv" targetPlatform.parsed.abi.name;
+        clangCompatibleConfig =
+          if hasUnsupportedGnuSuffix then
+            removeSuffix (removePrefix "gnu" targetPlatform.parsed.abi.name) targetPlatform.config
+          else
+            targetPlatform.config;
+        explicitAbiValue = if hasUnsupportedGnuSuffix then targetPlatform.parsed.abi.abi else "";
+      in
+      ''
+        # Escape twice: once for this script, once for the one it gets substituted into.
+        export machineFlags=${escapeShellArg (escapeShellArgs machineFlags)}
+        export defaultTarget=${clangCompatibleConfig}
+        export explicitAbiValue=${explicitAbiValue}
+        substituteAll ${./add-clang-cc-cflags-before.sh} $out/nix-support/add-local-cc-cflags-before.sh
+      ''
+    )
 
     ##
     ## Extra custom steps
@@ -936,7 +993,8 @@ stdenvNoCC.mkDerivation {
     inherit suffixSalt coreutils_bin bintools;
     inherit libc_bin libc_dev libc_lib;
     inherit darwinPlatformForCC;
-    default_hardening_flags_str = builtins.toString defaultHardeningFlags;
+    default_hardening_flags_str = toString defaultHardeningFlags;
+    inherit useMacroPrefixMap;
   }
   // lib.mapAttrs (_: lib.optionalString targetPlatform.isDarwin) {
     # These will become empty strings when not targeting Darwin.

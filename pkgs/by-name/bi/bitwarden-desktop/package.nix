@@ -1,18 +1,17 @@
 {
   lib,
-  apple-sdk_14,
   buildNpmPackage,
   cargo,
   copyDesktopItems,
+  dart-sass,
   darwin,
-  electron_36,
+  electron_39,
   fetchFromGitHub,
   gnome-keyring,
   jq,
   llvmPackages_18,
   makeDesktopItem,
   makeWrapper,
-  napi-rs-cli,
   nix-update-script,
   nodejs_22,
   pkg-config,
@@ -25,7 +24,7 @@
 let
   description = "Secure and free password manager for all of your devices";
   icon = "bitwarden";
-  electron = electron_36;
+  electron = electron_39;
 
   # argon2 npm dependency is using `std::basic_string<uint8_t>`, which is no longer allowed in LLVM 19
   buildNpmPackage' = buildNpmPackage.override {
@@ -34,13 +33,13 @@ let
 in
 buildNpmPackage' rec {
   pname = "bitwarden-desktop";
-  version = "2025.7.0";
+  version = "2026.2.1";
 
   src = fetchFromGitHub {
     owner = "bitwarden";
     repo = "clients";
     rev = "desktop-v${version}";
-    hash = "sha256-i1osaSK2Nnjnt2j/bS6VEMi4j5UvEEHf+RVt0901DvA=";
+    hash = "sha256-BiL9ugimdDKIzIoehGqdBfJkTOjbOMl8XV+0g/aGS/k=";
   };
 
   patches = [
@@ -49,10 +48,10 @@ buildNpmPackage' rec {
 
     # ensures `app.getPath("exe")` returns our wrapper, not ${electron}/bin/electron
     ./set-exe-path.patch
+    # ensure that the desktop proxy is correctly located in libexec
+    ./set-desktop-proxy-path.patch
     # on linux: don't flip fuses, don't create wrapper script, on darwin: don't try copying safari extensions, don't try re-signing app
     ./skip-afterpack-and-aftersign.patch
-    # since out arch doesn't match upstream, we'll generate and use desktop_napi.node instead of desktop_napi.${platform}-${arch}.node
-    ./dont-use-platform-triple.patch
   ];
 
   postPatch = ''
@@ -60,6 +59,8 @@ buildNpmPackage' rec {
     rm -r bitwarden_license
 
     substituteInPlace apps/desktop/src/main.ts --replace-fail '%%exePath%%' "$out/bin/bitwarden"
+    substituteInPlace apps/desktop/src/main/native-messaging.main.ts \
+      --replace-fail '%%desktopProxyPath%%' "$out/libexec/desktop_proxy"
 
     # force canUpdate to false
     # will open releases page instead of trying to update files
@@ -83,7 +84,7 @@ buildNpmPackage' rec {
     "--ignore-scripts"
   ];
   npmWorkspace = "apps/desktop";
-  npmDepsHash = "sha256-NnkT+NO3zUI71w9dSinnPeJbOlWBA4IHAxnMlYUmOT4=";
+  npmDepsHash = "sha256-S34Lxr9dH9wjBmpDYA530z2/HiY4D4b/3rswWDqsrFU=";
 
   cargoDeps = rustPlatform.fetchCargoVendor {
     inherit
@@ -93,7 +94,7 @@ buildNpmPackage' rec {
       cargoRoot
       patches
       ;
-    hash = "sha256-nhQUUj7Hz21fnbhqrQL4eYInPNlNLVgbkWylWMRJkAk=";
+    hash = "sha256-qK7cwrTzGKgHdaxaGcpR6bKJP/Tai2F+KFLu/PI6qqA=";
   };
   cargoRoot = "apps/desktop/desktop_native";
 
@@ -104,9 +105,9 @@ buildNpmPackage' rec {
 
   nativeBuildInputs = [
     cargo
+    dart-sass
     jq
     makeWrapper
-    napi-rs-cli
     pkg-config
     rustc
     rustPlatform.cargoCheckHook
@@ -120,18 +121,24 @@ buildNpmPackage' rec {
     darwin.autoSignDarwinBinariesHook
   ];
 
-  buildInputs = lib.optionals stdenv.hostPlatform.isDarwin [
-    apple-sdk_14
-  ];
-
   preBuild = ''
     if [[ $(jq --raw-output '.devDependencies.electron' < package.json | grep -E --only-matching '^[0-9]+') != ${lib.escapeShellArg (lib.versions.major electron.version)} ]]; then
       echo 'ERROR: electron version mismatch'
       exit 1
     fi
 
+    # force our dart-sass executable
+    echo "export const compilerCommand = ['dart-sass'];" > node_modules/sass-embedded/dist/lib/src/compiler-path.js
+
+    # needed so that the napi executable actually is usable
+    patchShebangs apps/desktop/node_modules
+
     pushd apps/desktop/desktop_native/napi
-    npm run build
+    npm run build -- --release
+    popd
+
+    pushd apps/desktop/desktop_native/proxy
+    cargo build --bin desktop_proxy --release -j $NIX_BUILD_CORES --offline
     popd
   '';
 
@@ -176,6 +183,8 @@ buildNpmPackage' rec {
 
   installPhase = ''
     runHook preInstall
+
+    install -Dm755 -t $out/libexec apps/desktop/desktop_native/target/release/desktop_proxy
   ''
   + lib.optionalString stdenv.hostPlatform.isDarwin ''
     mkdir -p $out/Applications
@@ -187,6 +196,7 @@ buildNpmPackage' rec {
     cp -r apps/desktop/dist/linux-*unpacked/{locales,resources{,.pak}} $out/opt/Bitwarden
 
     makeWrapper '${lib.getExe electron}' "$out/bin/bitwarden" \
+      --run "ulimit -c 0" \
       --add-flags $out/opt/Bitwarden/resources/app.asar \
       --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true}}" \
       --set-default ELECTRON_IS_DEV 0 \

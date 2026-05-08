@@ -18,16 +18,16 @@
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "uv";
-  version = "0.8.2";
+  version = "0.11.11";
 
   src = fetchFromGitHub {
     owner = "astral-sh";
     repo = "uv";
     tag = finalAttrs.version;
-    hash = "sha256-qMXXkf2hLyzd+4H85kGHiQIdAbvhMA2z+1z05ZF0hts=";
+    hash = "sha256-4zDknjkPdIZW42TMFW4H5B/li9Q+k/qrb/MUV+M+DbY=";
   };
 
-  cargoHash = "sha256-G5mLFKy/khHlP32/VFudtJJC1CWpBNyx4yPx1Gc8pcY=";
+  cargoHash = "sha256-zX3B1zk1V0qq2I1Sw8lb3TtRjjpKm5j/m785gJzlWqg=";
 
   buildInputs = [
     rust-jemalloc-sys
@@ -56,19 +56,26 @@ rustPlatform.buildRustPackage (finalAttrs: {
   );
 
   nativeInstallCheckInputs = [ versionCheckHook ];
-  versionCheckProgramArg = "--version";
   doInstallCheck = true;
 
   passthru = {
     tests.uv-python = python3Packages.uv;
-
-    # Updating `uv` needs to be done on staging. Disabling r-ryantm update bot:
-    # nixpkgs-update: no auto update
     updateScript = nix-update-script { };
   };
 
   meta = {
     description = "Extremely fast Python package installer and resolver, written in Rust";
+    longDescription = ''
+      `uv` manages project dependencies and environments, with support for lockfiles, workspaces, and more.
+
+      Due to `uv`'s (over)eager fetching of dynamically-linked Python executables,
+      as well as vendoring of dynamically-linked libraries within Python modules distributed via PyPI,
+      NixOS users can run into issues when managing Python projects.
+      See the Nixpkgs Reference Manual entry for `uv` for information on how to mitigate these issues:
+      https://nixos.org/manual/nixpkgs/unstable/#sec-uv.
+
+      For building Python projects with `uv` and Nix outside of nixpkgs, check out `uv2nix` at https://github.com/pyproject-nix/uv2nix.
+    '';
     homepage = "https://github.com/astral-sh/uv";
     changelog = "https://github.com/astral-sh/uv/blob/${finalAttrs.version}/CHANGELOG.md";
     license = with lib.licenses; [
@@ -79,7 +86,13 @@ rustPlatform.buildRustPackage (finalAttrs: {
       bengsparks
       GaetanLepage
       prince213
+      miniharinn
     ];
     mainProgram = "uv";
+
+    # Builds on 32-bit platforms fails with "out of memory" since at least 0.8.6.
+    # We don't place this in `badPlatforms` because cross-compilation on 64-bit
+    # machine may work, e.g. `pkgsCross.gnu32.uv`.
+    broken = stdenv.buildPlatform.is32bit;
   };
 })

@@ -9,16 +9,26 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "liboprf";
-  version = "0.7.1";
+  version = "0.9.4";
 
   src = fetchFromGitHub {
     owner = "stef";
     repo = "liboprf";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-auC6iVTMbLktKCPY8VgOdx2dMI2KDzNgtY1zyNXjM1A=";
+    hash = "sha256-CQF7feBL83iN2I6GfWjJ2Xe6fLm7D2yEUb6KgioXWkw=";
   };
 
   sourceRoot = "${finalAttrs.src.name}/src";
+
+  patches = [
+    ./no-static.patch
+  ];
+
+  # strip: error: option is not supported for MachO
+  postPatch = lib.optionalString stdenv.hostPlatform.isMacho ''
+    substituteInPlace makefile \
+      --replace-fail "--strip-unneeded" ""
+  '';
 
   strictDeps = true;
 
@@ -27,6 +37,8 @@ stdenv.mkDerivation (finalAttrs: {
   buildInputs = [ libsodium ];
 
   makeFlags = [ "PREFIX=$(out)" ];
+
+  env.NIX_CFLAGS_COMPILE = "-Wno-error=maybe-uninitialized";
 
   passthru.updateScript = nix-update-script { };
 

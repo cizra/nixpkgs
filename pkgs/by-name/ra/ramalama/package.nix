@@ -1,40 +1,50 @@
 {
   lib,
-  python3,
+  python3Packages,
   fetchFromGitHub,
   go-md2man,
 
+  llama-cpp-vulkan,
   podman,
   withPodman ? true,
+  writableTmpDirAsHomeHook,
 
   # passthru
   ramalama,
 }:
 
-python3.pkgs.buildPythonApplication rec {
+python3Packages.buildPythonApplication (finalAttrs: {
   pname = "ramalama";
-  version = "0.11.3";
+  version = "0.19.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "containers";
     repo = "ramalama";
-    tag = "v${version}";
-    hash = "sha256-dvNFSPPdMnxgwGK2rVSsyaYwvz0wHutqjLFhsCps80A=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-9y7H1Iq/Dn89NIJDegY8lbII4ehx3jhulyOEkBIm4Nk=";
   };
 
-  build-system = with python3.pkgs; [
+  build-system = with python3Packages; [
     setuptools
     wheel
   ];
 
-  dependencies = [
-    python3.pkgs.argcomplete
+  dependencies = with python3Packages; [
+    argcomplete
+    bcrypt
+    pyyaml
+    jsonschema
+    jinja2
   ];
 
   nativeBuildInputs = [
     go-md2man
   ];
+
+  postPatch = ''
+    substituteInPlace ramalama/config.py --replace-fail "{sys.prefix}" "$out"
+  '';
 
   preBuild = ''
     make docs
@@ -42,7 +52,18 @@ python3.pkgs.buildPythonApplication rec {
 
   postInstall = lib.optionalString withPodman ''
     wrapProgram $out/bin/ramalama \
-      --prefix PATH : ${lib.makeBinPath [ podman ]}
+      --prefix PATH : ${
+        lib.makeBinPath (
+          [
+            llama-cpp-vulkan
+            podman
+          ]
+          ++ (with python3Packages; [
+            huggingface-hub
+            mlx-lm
+          ])
+        )
+      }
   '';
 
   pythonImportsCheck = [
@@ -50,8 +71,15 @@ python3.pkgs.buildPythonApplication rec {
   ];
 
   nativeCheckInputs = [
-    python3.pkgs.pytestCheckHook
+    podman
+    python3Packages.pytestCheckHook
+    python3Packages.requests
+    writableTmpDirAsHomeHook
   ];
+
+  preCheck = ''
+    export PATH="$out/bin:$PATH"
+  '';
 
   passthru = {
     tests = {
@@ -73,4 +101,4 @@ python3.pkgs.buildPythonApplication rec {
     maintainers = with lib.maintainers; [ booxter ];
     mainProgram = "ramalama";
   };
-}
+})

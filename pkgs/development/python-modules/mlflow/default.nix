@@ -1,42 +1,50 @@
 {
   lib,
+  buildPythonPackage,
   fetchFromGitHub,
 
   # build-system
   setuptools,
 
   # dependencies
+  aiohttp,
   alembic,
-  buildPythonPackage,
   cachetools,
   click,
   cloudpickle,
+  cryptography,
   databricks-sdk,
   docker,
+  fastapi,
   flask,
+  flask-cors,
   gitpython,
   graphene,
   gunicorn,
+  huey,
   importlib-metadata,
   jinja2,
   markdown,
   matplotlib,
   numpy,
   opentelemetry-api,
+  opentelemetry-proto,
   opentelemetry-sdk,
   packaging,
   pandas,
   protobuf,
   pyarrow,
+  python-dotenv,
   pyyaml,
   requests,
   scikit-learn,
   scipy,
+  skops,
   sqlalchemy,
   sqlparse,
+  uvicorn,
 
   # tests
-  aiohttp,
   azure-core,
   azure-storage-blob,
   azure-storage-file,
@@ -44,7 +52,6 @@
   botocore,
   catboost,
   datasets,
-  fastapi,
   google-cloud-storage,
   httpx,
   jwt,
@@ -65,25 +72,25 @@
   tensorflow,
   torch,
   transformers,
-  uvicorn,
   xgboost,
 }:
 
 buildPythonPackage rec {
   pname = "mlflow";
-  version = "2.20.3";
+  version = "3.11.1";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "mlflow";
     repo = "mlflow";
     tag = "v${version}";
-    hash = "sha256-kgohENAx5PpLQ9pBfl/zSq65l/DqJfufBf0gWR1WJHY=";
+    hash = "sha256-Oe6nBnnOz7MvGUNCcCGhHl6ZbyDfAhQ0LlfMBF4p6Hc=";
   };
 
   pythonRelaxDeps = [
+    "cryptography"
     "gunicorn"
-    "importlib-metadata"
+    "importlib_metadata"
     "packaging"
     "protobuf"
     "pytz"
@@ -93,35 +100,44 @@ buildPythonPackage rec {
   build-system = [ setuptools ];
 
   dependencies = [
+    aiohttp
     alembic
     cachetools
     click
     cloudpickle
+    cryptography
     databricks-sdk
     docker
+    fastapi
     flask
+    flask-cors
     gitpython
     graphene
     gunicorn
+    huey
     importlib-metadata
     jinja2
     markdown
     matplotlib
     numpy
     opentelemetry-api
+    opentelemetry-proto
     opentelemetry-sdk
     packaging
     pandas
     protobuf
     pyarrow
     pydantic
+    python-dotenv
     pyyaml
     requests
     scikit-learn
     scipy
     shap
+    skops
     sqlalchemy
     sqlparse
+    uvicorn
   ];
 
   pythonImportsCheck = [ "mlflow" ];
@@ -135,7 +151,6 @@ buildPythonPackage rec {
     botocore
     catboost
     datasets
-    fastapi
     google-cloud-storage
     httpx
     jwt
@@ -195,6 +210,6 @@ buildPythonPackage rec {
     homepage = "https://github.com/mlflow/mlflow";
     changelog = "https://github.com/mlflow/mlflow/blob/${src.tag}/CHANGELOG.md";
     license = lib.licenses.asl20;
-    maintainers = with lib.maintainers; [ tbenst ];
+    maintainers = [ ];
   };
 }

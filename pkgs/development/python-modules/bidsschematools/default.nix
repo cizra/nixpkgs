@@ -1,26 +1,26 @@
 {
   lib,
   buildPythonPackage,
-  pythonOlder,
-  fetchPypi,
+  fetchFromGitHub,
   pdm-backend,
   acres,
   click,
   pyyaml,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "bidsschematools";
-  version = "1.0.13";
+  version = "1.2.2";
   pyproject = true;
 
-  disabled = pythonOlder "3.9";
-
-  src = fetchPypi {
-    pname = "bidsschematools";
-    inherit version;
-    hash = "sha256-l9DN68kf1HwE0Th6XBuLxlikAyaARIEK/jwE6/mC0Vo=";
+  src = fetchFromGitHub {
+    owner = "bids-standard";
+    repo = "bids-specification";
+    tag = "schema-${finalAttrs.version}";
+    hash = "sha256-6s5j+aHMiLzDK5X48sD6hVzXpGYWSRX9J3sljt4iqZw=";
   };
+
+  sourceRoot = "${finalAttrs.src.name}/tools/schemacode";
 
   build-system = [
     pdm-backend
@@ -42,4 +42,4 @@ buildPythonPackage rec {
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ wegank ];
   };
-}
+})
